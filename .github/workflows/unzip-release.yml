@@ -1,0 +1,33 @@
+name: Unzip Release
+
+on:
+  workflow_dispatch: # lets you run it manually
+  release:
+    types: [published] # triggers when you publish a release
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Download release zip
+        uses: actions/download-release-asset@v2
+        with:
+          repository: ${{ github.repository }}
+          release_id: ${{ github.event.release.id }}
+          asset_name: RandomDropsMod-1.21.zip
+          path: ./release
+
+      - name: Unzip files
+        run: unzip ./release/your-zip-file.zip -d .
+
+      - name: Commit unzipped files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .
+          git commit -m "Add unzipped release files"
+          git push
