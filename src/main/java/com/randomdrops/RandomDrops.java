@@ -8,7 +8,6 @@ import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
-
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
@@ -27,17 +26,18 @@ public class RandomDrops implements ModInitializer {
 
         // Override block drops
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
-            Block block = state.getBlock();
-            Item dropItem = blockDrops.get(block);
+            if (!world.isClient()) {
+                Block block = state.getBlock();
+                Item dropItem = blockDrops.get(block);
 
-            if (dropItem != null && !world.isClient()) {
-                // Break the block without dropping vanilla items
-                world.setBlockState(pos, net.minecraft.block.Blocks.AIR.getDefaultState());
-                // Drop only the random item
-                Block.dropStack(world, pos, new ItemStack(dropItem));
+                if (dropItem != null) {
+                    // Drop only the random item
+                    Block.dropStack(world, pos, new ItemStack(dropItem));
+                    // Remove the vanilla drop by setting the block to air manually
+                    world.setBlockState(pos, net.minecraft.block.Blocks.AIR.getDefaultState(), 3);
+                }
             }
-
-            return true; // allow the block to break visually
+            return false; // cancel normal drop
         });
 
         // Register /redrop command to reshuffle all drops
@@ -54,20 +54,22 @@ public class RandomDrops implements ModInitializer {
         });
     }
 
+    // Generates a new random item for each block
     private static void generateRandomDrops() {
         blockDrops.clear();
 
-        List<Item> allItems = new ArrayList<>();
-        Registries.ITEM.stream().forEach(allItems::add);
-
-        List<Block> allBlocks = new ArrayList<>();
-        Registries.BLOCK.stream().forEach(allBlocks::add);
+        List<Item> allItems = new ArrayList<>(Registries.ITEM.stream().toList());
+        List<Block> allBlocks = new ArrayList<>(Registries.BLOCK.stream().toList());
 
         Collections.shuffle(allItems, random);
 
-        // Assign unique random item to each block
         for (int i = 0; i < allBlocks.size(); i++) {
             blockDrops.put(allBlocks.get(i), allItems.get(i % allItems.size()));
         }
+    }
+
+    // Optional helper to get a block's current random drop
+    public static Item getDrop(Block block) {
+        return blockDrops.get(block);
     }
 }
