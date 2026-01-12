@@ -1,8 +1,8 @@
 package com.randomdrops;
 
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.loot.v3.LootTableEvents;
 
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
@@ -11,11 +11,16 @@ import net.minecraft.registry.Registries;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
+import net.minecraft.loot.context.LootContextParameters;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 public class RandomDrops implements ModInitializer {
-    // Stores which item each block drops
     private static final Map<Block, Item> blockDrops = new HashMap<>();
     private static final Random random = new Random();
 
@@ -24,23 +29,21 @@ public class RandomDrops implements ModInitializer {
         // Generate initial random drops
         generateRandomDrops();
 
-        // Override block drops
-        PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
-            if (!world.isClient()) {
-                Block block = state.getBlock();
-                Item dropItem = blockDrops.get(block);
+        // Intercept all loot table drops
+        LootTableEvents.MODIFY_DROPS.register((resource, context, drops) -> {
+            // Only modify block drops
+            if (context.hasParameter(LootContextParameters.BLOCK_STATE)) {
+                Block block = context.get(LootContextParameters.BLOCK_STATE).getBlock();
+                Item dropItem = getDrop(block);
 
                 if (dropItem != null) {
-                    // Drop only the random item
-                    Block.dropStack(world, pos, new ItemStack(dropItem));
-                    // Remove the vanilla drop by setting the block to air manually
-                    world.setBlockState(pos, net.minecraft.block.Blocks.AIR.getDefaultState(), 3);
+                    drops.clear(); // remove normal drops
+                    drops.add(new ItemStack(dropItem));
                 }
             }
-            return false; // cancel normal drop
         });
 
-        // Register /redrop command to reshuffle all drops
+        // /redrop command to reshuffle all drops
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(
                     CommandManager.literal("redrop")
@@ -54,7 +57,7 @@ public class RandomDrops implements ModInitializer {
         });
     }
 
-    // Generates a new random item for each block
+    // Assign a random item to each block
     private static void generateRandomDrops() {
         blockDrops.clear();
 
@@ -68,8 +71,8 @@ public class RandomDrops implements ModInitializer {
         }
     }
 
-    // Optional helper to get a block's current random drop
+    // Get the random drop for a block
     public static Item getDrop(Block block) {
-        return blockDrops.get(block);
+        return blockDrops.getOrDefault(block, null);
     }
 }
