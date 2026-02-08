@@ -72,13 +72,17 @@ public class RandomDrops implements ModInitializer {
                             .then(CommandManager.literal("on")
                                     .executes(context -> {
                                         enabled = true;
+                                        if (blockDrops.isEmpty()) generateRandomDrops();
+
                                         context.getSource().sendFeedback(() -> Text.literal("✅ Random drops enabled"), false);
                                         return 1;
                                     })
                             )
                             .then(CommandManager.literal("off")
                                     .executes(context -> {
+                                        
                                         enabled = false;
+                                        blockDrops.clear();
                                         context.getSource().sendFeedback(() -> Text.literal("❌ Random drops disabled"), false);
                                         return 1;
                                     })
